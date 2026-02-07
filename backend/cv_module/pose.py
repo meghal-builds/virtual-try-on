@@ -21,16 +21,29 @@ def detect_pose_from_image(image_path: str):
         if not results.pose_landmarks:
             return None
 
-        # Extract landmarks
-        left = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER]
-        right = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER]
-        left_hip = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP]
+        landmarks = results.pose_landmarks.landmark
 
-        left_shoulder = [int(left.x * width), int(left.y * height)]
-        right_shoulder = [int(right.x * width), int(right.y * height)]
-        left_hip_point = [int(left_hip.x * width), int(left_hip.y * height)]
+        # ==============================
+        # SHOULDER POINTS
+        # ==============================
+        left_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+        right_sh = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
 
-        # Shoulder distance
+        left_shoulder = [int(left_sh.x * width), int(left_sh.y * height)]
+        right_shoulder = [int(right_sh.x * width), int(right_sh.y * height)]
+
+        # ==============================
+        # HIP POINTS
+        # ==============================
+        left_hip_lm = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+        right_hip_lm = landmarks[mp_pose.PoseLandmark.RIGHT_HIP]
+
+        left_hip = [int(left_hip_lm.x * width), int(left_hip_lm.y * height)]
+        right_hip = [int(right_hip_lm.x * width), int(right_hip_lm.y * height)]
+
+        # ==============================
+        # DISTANCES
+        # ==============================
         shoulder_distance = int(
             math.sqrt(
                 (right_shoulder[0] - left_shoulder[0]) ** 2 +
@@ -38,32 +51,32 @@ def detect_pose_from_image(image_path: str):
             )
         )
 
-        # Shoulder angle (for garment rotation)
-        dx = right_shoulder[0] - left_shoulder[0]
-        dy = right_shoulder[1] - left_shoulder[1]
-        shoulder_angle = -math.degrees(math.atan2(dy, dx))
+        hip_distance = int(
+            math.sqrt(
+                (right_hip[0] - left_hip[0]) ** 2 +
+                (right_hip[1] - left_hip[1]) ** 2
+            )
+        )
 
-        # Midpoint
-        mid_x = (left_shoulder[0] + right_shoulder[0]) // 2
-        mid_y = (left_shoulder[1] + right_shoulder[1]) // 2
+        # ==============================
+        # TORSO HEIGHT
+        # ==============================
+        torso_height = abs(left_hip[1] - left_shoulder[1])
 
-        # Torso height
-        torso_height = abs(left_hip_point[1] - left_shoulder[1])
-
-    # -------- SELFIE SEGMENTATION --------
+    # ==============================
+    # SELFIE SEGMENTATION
+    # ==============================
     with mp_selfie.SelfieSegmentation(model_selection=1) as segmenter:
         results_seg = segmenter.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-        mask = results_seg.segmentation_mask
-
-        # Convert to binary mask
-        mask = (mask > 0.5).astype(np.uint8)
+        mask = (results_seg.segmentation_mask > 0.5).astype(np.uint8)
 
     return {
         "left_shoulder": left_shoulder,
         "right_shoulder": right_shoulder,
+        "left_hip": left_hip,
+        "right_hip": right_hip,
         "shoulder_distance": shoulder_distance,
-        "shoulder_midpoint": [mid_x, mid_y],
+        "hip_distance": hip_distance,
         "torso_height": torso_height,
-        "shoulder_angle": shoulder_angle,
         "mask": mask.tolist()
     }
