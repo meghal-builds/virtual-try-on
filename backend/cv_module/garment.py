@@ -12,26 +12,28 @@ def apply_garment(base_image_path, garment_image_path, pose_data):
     if garment_img.shape[2] < 4:
         return None
 
-    h_g, w_g = garment_img.shape[:2]
-
-    # ==============================
-    # 1️⃣ GARMENT CORNER POINTS
-    # ==============================
-    src_points = np.float32([
-        [0, 0],          # top-left
-        [w_g, 0],        # top-right
-        [0, h_g],        # bottom-left
-        [w_g, h_g]       # bottom-right
-    ])
-
-    # ==============================
-    # 2️⃣ BODY TARGET POINTS
-    # ==============================
     left_sh = pose_data["left_shoulder"]
     right_sh = pose_data["right_shoulder"]
     left_hip = pose_data["left_hip"]
     right_hip = pose_data["right_hip"]
 
+    mask = np.array(pose_data["mask"], dtype=np.uint8)
+
+    h, w = garment_img.shape[:2]
+
+    # -----------------------------
+    # 1️⃣ Define garment corner points
+    # -----------------------------
+    src_points = np.float32([
+        [0, 0],        # top-left
+        [w, 0],        # top-right
+        [0, h],        # bottom-left
+        [w, h]         # bottom-right
+    ])
+
+    # -----------------------------
+    # 2️⃣ Define body target points
+    # -----------------------------
     dst_points = np.float32([
         left_sh,
         right_sh,
@@ -39,9 +41,9 @@ def apply_garment(base_image_path, garment_image_path, pose_data):
         right_hip
     ])
 
-    # ==============================
-    # 3️⃣ PERSPECTIVE TRANSFORM
-    # ==============================
+    # -----------------------------
+    # 3️⃣ Perspective Transform
+    # -----------------------------
     matrix = cv2.getPerspectiveTransform(src_points, dst_points)
 
     warped = cv2.warpPerspective(
@@ -53,19 +55,21 @@ def apply_garment(base_image_path, garment_image_path, pose_data):
         borderValue=(0, 0, 0, 0)
     )
 
-    # ==============================
-    # 4️⃣ ALPHA BLEND
-    # ==============================
+    # -----------------------------
+    # 4️⃣ Alpha Blending
+    # -----------------------------
     alpha = warped[:, :, 3] / 255.0
     alpha = np.dstack([alpha, alpha, alpha])
 
     garment_rgb = warped[:, :, :3]
 
-    mask = np.array(pose_data["mask"], dtype=np.uint8)
-    mask = np.dstack([mask, mask, mask])
+    blended = (alpha * garment_rgb + (1 - alpha) * base_img).astype(np.uint8)
 
-    blended = alpha * garment_rgb + (1 - alpha) * base_img
+    # -----------------------------
+    # 5️⃣ Apply Body Mask
+    # -----------------------------
+    body_mask = np.dstack([mask, mask, mask])
 
-    final = mask * blended + (1 - mask) * base_img
+    final = body_mask * blended + (1 - body_mask) * base_img
 
     return final.astype(np.uint8)

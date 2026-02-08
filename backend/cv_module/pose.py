@@ -26,11 +26,19 @@ def detect_pose_from_image(image_path: str):
         # ==============================
         # SHOULDER POINTS
         # ==============================
-        left_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
-        right_sh = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+        left_sh_lm = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+        right_sh_lm = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
 
-        left_shoulder = [int(left_sh.x * width), int(left_sh.y * height)]
-        right_shoulder = [int(right_sh.x * width), int(right_sh.y * height)]
+        left_shoulder = [
+            int(left_sh_lm.x * width),
+            int(left_sh_lm.y * height)
+        ]
+
+        right_shoulder = [
+            int(right_sh_lm.x * width),
+            int(right_sh_lm.y * height)
+        ]
+        
 
         # ==============================
         # HIP POINTS
@@ -38,8 +46,21 @@ def detect_pose_from_image(image_path: str):
         left_hip_lm = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
         right_hip_lm = landmarks[mp_pose.PoseLandmark.RIGHT_HIP]
 
-        left_hip = [int(left_hip_lm.x * width), int(left_hip_lm.y * height)]
-        right_hip = [int(right_hip_lm.x * width), int(right_hip_lm.y * height)]
+        left_hip = [
+            int(left_hip_lm.x * width),
+            int(left_hip_lm.y * height)
+        ]
+
+        right_hip = [
+            int(right_hip_lm.x * width),
+            int(right_hip_lm.y * height)
+        ]
+
+
+        # Fix flipped shoulders
+        if left_shoulder[0] > right_shoulder[0]:
+            left_shoulder, right_shoulder = right_shoulder, left_shoulder
+            left_hip, right_hip = right_hip, left_hip
 
         # ==============================
         # DISTANCES
@@ -63,6 +84,19 @@ def detect_pose_from_image(image_path: str):
         # ==============================
         torso_height = abs(left_hip[1] - left_shoulder[1])
 
+        # ==============================
+        # SHOULDER ANGLE
+        # ==============================
+        dx = right_shoulder[0] - left_shoulder[0]
+        dy = right_shoulder[1] - left_shoulder[1]
+        shoulder_angle = math.degrees(math.atan2(dy, dx))
+
+        # ==============================
+        # MIDPOINT
+        # ==============================
+        mid_x = (left_shoulder[0] + right_shoulder[0]) // 2
+        mid_y = (left_shoulder[1] + right_shoulder[1]) // 2
+
     # ==============================
     # SELFIE SEGMENTATION
     # ==============================
@@ -78,5 +112,7 @@ def detect_pose_from_image(image_path: str):
         "shoulder_distance": shoulder_distance,
         "hip_distance": hip_distance,
         "torso_height": torso_height,
+        "shoulder_angle": shoulder_angle,
+        "shoulder_midpoint": [mid_x, mid_y],
         "mask": mask.tolist()
     }
